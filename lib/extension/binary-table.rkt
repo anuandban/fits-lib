@@ -1,6 +1,7 @@
 #lang typed/racket
 
 (require math
+         typed/rackunit
          "../util.rkt"
          "../attr.rkt")
 
@@ -23,7 +24,7 @@
 (define-type Array-Descriptor Bytes)
 
 (define-type Table-Element
-  (U Boolean Bits-Array Bytes String Integer Float Float-Complex Array-Descriptor))
+  (U Boolean Bits-Array Bytes String Integer Float Float-Complex Number Array-Descriptor))
 
 (struct binary-table
   (; 由TFIELD描述的各个字段在一行中类型名, 占据的字节长度, 字段内值数量.
@@ -40,11 +41,12 @@
 ;;;
 
 ;;  -----工具函数-----
+
 ;   field-offset的协助函数
+;   根据f的内容确认其映射的长度是多少，注意单位是字节
+;   一个字段可以包含多个值，因此返回的还包括值的数量
 (: binary-format-ref (-> String (List String Integer Integer)))
 (define (binary-format-ref f)
-; 根据f的内容确认其映射的长度是多少，注意单位是字节
-; 一个字段可以包含多个值，因此返回的还包括值的数量
   (let* (; 匹配逻辑，比特，字节，16/32/64位整数，单双精度浮点数和复数
          [retf1 #px"^(0?|[1-9]*)([LXBIJKAEDCM])(.?) *"]
          ; 匹配32/64位数组描述符
@@ -95,6 +97,43 @@
            (list tchar (* b c) c)))]
       [else (raise "Wrong TFORM data types")])))
 
+(module+ test
+  (test-case "binary-format-ref-test"
+    ;; 测试binary-format-ref函数
+    ; 读取逻辑值
+    (check-equal? (binary-format-ref "8L") '("L" 8 8))
+    (check-equal? (binary-format-ref "0L") '("L" 0 0))
+    (check-equal? (binary-format-ref "L") '("L" 1 1))
+    ; 读取位值
+    (check-equal? (binary-format-ref "X") '("X" 1 1))
+    ; 读取无符号字节
+    (check-equal? (binary-format-ref "B") '("B" 1 1))
+    ; 读取16位整数
+    (check-equal? (binary-format-ref "12I") '("I" 24 12))
+    (check-equal? (binary-format-ref "I") '("I" 2 1))
+    ; 读取32位整数
+    (check-equal? (binary-format-ref "1J") '("J" 4 1))
+    (check-equal? (binary-format-ref "J") '("J" 4 1))
+    ; 读取64位整数
+    (check-equal? (binary-format-ref "1K") '("K" 8 1))
+    (check-equal? (binary-format-ref "K") '("K" 8 1))
+    ; 读取ASCII字符
+    (check-equal? (binary-format-ref "A") '("A" 1 1))
+    ; 读取单精度浮点数
+    (check-equal? (binary-format-ref "E") '("E" 4 1))
+    ; 读取双精度浮点数
+    (check-equal? (binary-format-ref "D") '("D" 8 1))
+    ; 读取单精度复数
+    (check-equal? (binary-format-ref "C") '("C" 8 1))
+    ; 读取双精度复数
+    (check-equal? (binary-format-ref "M") '("M" 16 1))
+    ; 读取32位数组描述符
+    (check-equal? (binary-format-ref "1P") '("P" 8 1))
+    (check-equal? (binary-format-ref "P") '("P" 8 1))
+    (check-equal? (binary-format-ref "0P") '("P" 0 0))
+    ; 读取64位数组描述符
+    (check-equal? (binary-format-ref "Q") '("Q" 16 1))))
+
 ;   从TFROMS属性中总结出一行上各字段的长度
 (: field-offset (-> (HashTable Integer String) (Vectorof (List String Integer Integer))))
 (define (field-offset tform)
@@ -138,6 +177,21 @@
     ; 双精度复数
     ["M" (+ (floating-point-bytes->real data #f 0 8) (* 0+1.0i (floating-point-bytes->real data #f 8 16)))]))
 
+(module+ test
+  (test-case
+   "format-bytes-value-test"
+   ; 测试逻辑值
+   (check-equal? (format-bytes-value "L" #"\0") #f)
+   (check-equal? (format-bytes-value "L" #"\1") #t)
+   (check-exn exn:fail? (lambda () (format-bytes-value "L" #"\114")))
+   ; 测试复数
+   (check-equal?
+    (format-bytes-value "C" (bytes-append (real->floating-point-bytes 1.0 4) (real->floating-point-bytes 0.0 4)))
+    1.0+0.0i)
+   (check-equal?
+    (format-bytes-value "M" (bytes-append (real->floating-point-bytes 1.0 8) (real->floating-point-bytes 0.0 8)))
+    1.0+0.0i)))
+
 ;   从对齐区块中读取数据矩阵, 所需参数将在build-binary-table中清洗出来
 (: load-table-from 
    (-> Input-Port (Vectorof (List String Integer Integer)) Integer Integer
@@ -145,7 +199,7 @@
 (define (load-table-from p tform naxis1 naxis2)
   (let ([byte_table
          (subbytes
-          (assert (read-bytes (* (ceiling (/ (* naxis1 naxis2) 2880)) 2880) p) bytes?)
+          (assert (read-bytes-aligned p (* naxis1 naxis2)) bytes?)
           0 (* naxis1 naxis2))]
         [split-fields
          : (-> Bytes (Pairof Number (Array (Listof Table-Element))))
@@ -205,7 +259,7 @@
 
 ;;  -----对外接口函数-----
 ;;  从对齐区块input-port的字节流中构建二进制表
-(: build-binary-table (-> Input-Port Attr binary-table))
+(: build-binary-table (-> Input-Port Header-Attr binary-table))
 (define (build-binary-table p at)
   (let* ([naxis1 (assert (attr-val (hash-ref at "NAXIS1")) exact-nonnegative-integer?)]
          [naxis2 (assert (attr-val (hash-ref at "NAXIS2")) exact-nonnegative-integer?)]
