@@ -5,7 +5,8 @@
          "../util.rkt"
          "../attr.rkt")
 
-(provide binary-table
+(provide Table-Element
+         binary-table
          binary-table-asize
          binary-table-data
          binary-table-mapping
@@ -34,7 +35,8 @@
    ; 可选的由TTYPE决定的每个字段的别名
    [mapping : (HashTable String Nonnegative-Integer)]
    ; 原始字节解析后的矩阵
-   [data : (Matrix (Listof Table-Element))]))
+   [data : (Matrix (Listof Table-Element))])
+  #:prefab)
 
 ;;;
 ;   二进制表操作函数
@@ -249,10 +251,10 @@
       (unless _row_set?
         (set! _row_set? #t)
         (set! _row_id! 0)
-        (set! _row_fields! (cdr (split-fields (subbytes byte_table (* row_ix naxis2) (* (add1 row_ix) naxis2))))))
+        (set! _row_fields! (cdr (split-fields (subbytes byte_table (* row_ix naxis1) (* (add1 row_ix) naxis1))))))
       (when (= (sub1 row_ix) _row_id!)
         (set! _row_id! row_ix)
-        (set! _row_fields! (cdr (split-fields (subbytes byte_table (* row_ix naxis2) (* (add1 row_ix) naxis2))))))
+        (set! _row_fields! (cdr (split-fields (subbytes byte_table (* row_ix naxis1) (* (add1 row_ix) naxis1))))))
       (array-ref _row_fields! (vector col_ix)))))
 ;
 ;;  ---------------
@@ -287,7 +289,7 @@
 (: read-field (-> binary-table String (Matrix (Listof Table-Element))))
 (define (read-field bt field)
   (let ([idx (hash-ref (binary-table-mapping bt) field)])
-    (matrix-col (binary-table-data bt) idx)))
+    (matrix-col (binary-table-data bt) (sub1 idx))))
 
 ;; 写入操作
 ;  目前只支持对数据矩阵整体更改, 更多操作有待实现

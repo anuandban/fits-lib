@@ -7,6 +7,7 @@
          attr-comment
          Header-Attr
          AttrValue
+         read-header
          take-fields-named)
 
 (define-type AttrValue (U Boolean String Number 'undefined))
@@ -337,10 +338,10 @@
        4 "TFORM" #t))))
   
   ;; 测试用文件
-  (define tess (open-input-file "../test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
-  (define lamost (open-input-file "../test/dr10_v2.0_LRS_catalogue.fits"))
+  ;(define tess (open-input-file "../test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
+  ;(define lamost (open-input-file "../test/dr10_v2.0_LRS_catalogue.fits"))
   ;; 接下来的测试将使用这两个文件作为基准
-  (test-case
-   "read-header-test"
-   (pretty-print (read-header tess)))
+  ;(test-case
+  ; "read-header-test"
+  ; (pretty-print (read-header tess)))
 )
