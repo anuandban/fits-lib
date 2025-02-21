@@ -26,15 +26,15 @@
      (println "----------TEST HEADER----------" outfile)
      (pretty-print (binary-table-tfields ext_table) outfile)
      (println "----------TEST HEADER----------" outfile)
-     (pretty-print (bt-read-field ext_table "TIME    ") outfile))))
+     (pretty-print (binary-table-data ext_table) outfile))))
 
 (define tess (open-input-file "../test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
-(read-header tess)
+(define _h (read-header tess))
 (define ext-h (read-header tess))
 (define ext-t (build-binary-table tess ext-h))
 (define ttime
   (vector-map (lambda ([x : (Listof Table-Element)]) : Real (cast (car x) Real))
-              (matrix->vector (bt-read-field ext-t "TIME    "))))
+              (matrix->vector (bt-read-field ext-t "TIME"))))
 (define tflux
   (vector-map (lambda ([x : (Listof Table-Element)]) : Real (cast (car x) Real))
               (matrix->vector (bt-read-field ext-t "PDCSAP_FLUX"))))
@@ -45,5 +45,6 @@
  (points
   (vector-map
    (lambda ([x : Real] [y : Real]) (vector x y))
-   (cast (list->vector (range 17967)) (Vectorof Real))
-   ttime)))
+   ttime
+   tflux)
+  #:sym 'bullet))

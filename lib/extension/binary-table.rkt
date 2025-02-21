@@ -146,10 +146,14 @@
              (values k (binary-format-ref v))))]
          [_ref_list
           (map (lambda ([v : (Pairof Integer (List String Integer Integer))]) (cdr v))
-               (hash->list _ref_map))])
+               (sort (hash->list _ref_map)
+                     (lambda ([x : (Pairof Integer (List String Integer Integer))]
+                              [y : (Pairof Integer (List String Integer Integer))])
+                       (< (car x) (car y)))))])
     (list->vector _ref_list)))
 
-; 将字节串转换为Racket类型
+;   将字节串转换为Racket类型
+;   注意FITS数值类型全是大端序
 (: format-bytes-value (-> String Bytes Table-Element))
 (define (format-bytes-value type data)
   (match type
@@ -163,21 +167,21 @@
     ; 无符号字节
     ["B" data]
     ; 16位整数
-    ["I" (integer-bytes->integer data #t)]
+    ["I" (integer-bytes->integer data #t #t)]
     ; 32位整数
-    ["J" (integer-bytes->integer data #t)]
+    ["J" (integer-bytes->integer data #t #t)]
     ; 64位整数
-    ["K" (integer-bytes->integer data #t)]
+    ["K" (integer-bytes->integer data #t #t)]
     ; ASCII字符
     ["A" (bytes->string/utf-8 data)]
     ; 单精度浮点数
-    ["E" (floating-point-bytes->real data)]
+    ["E" (floating-point-bytes->real data #t)]
     ; 双精度浮点数
-    ["D" (floating-point-bytes->real data)]
+    ["D" (floating-point-bytes->real data #t)]
     ; 单精度复数
-    ["C" (+ (floating-point-bytes->real data #f 0 4) (* 0+1.0i (floating-point-bytes->real data #f 4 8)))]
+    ["C" (+ (floating-point-bytes->real data #t 0 4) (* 0+1.0i (floating-point-bytes->real data #t 4 8)))]
     ; 双精度复数
-    ["M" (+ (floating-point-bytes->real data #f 0 8) (* 0+1.0i (floating-point-bytes->real data #f 8 16)))]))
+    ["M" (+ (floating-point-bytes->real data #t 0 8) (* 0+1.0i (floating-point-bytes->real data #t 8 16)))]))
 
 (module+ test
   (test-case
@@ -188,10 +192,10 @@
    (check-exn exn:fail? (lambda () (format-bytes-value "L" #"\114")))
    ; 测试复数
    (check-equal?
-    (format-bytes-value "C" (bytes-append (real->floating-point-bytes 1.0 4) (real->floating-point-bytes 0.0 4)))
+    (format-bytes-value "C" (bytes-append (real->floating-point-bytes 1.0 4 #t) (real->floating-point-bytes 0.0 4 #t)))
     1.0+0.0i)
    (check-equal?
-    (format-bytes-value "M" (bytes-append (real->floating-point-bytes 1.0 8) (real->floating-point-bytes 0.0 8)))
+    (format-bytes-value "M" (bytes-append (real->floating-point-bytes 1.0 8 #t) (real->floating-point-bytes 0.0 8 #t)))
     1.0+0.0i)))
 
 ;   从对齐区块中读取数据矩阵, 所需参数将在build-binary-table中清洗出来
@@ -270,12 +274,12 @@
           (hash-map/copy
            (take-fields-named at tfield "TFORM" #t)
            (lambda ([k : Integer] [v : attr]) : (Values Integer String)
-             (values k (assert (attr-val v) string?))))]
+             (values k (string-trim (assert (attr-val v) string?)))))]
          [ttype_map : (HashTable String Nonnegative-Integer)
           (hash-map/copy
            (take-fields-named at tfield "TTYPE")
            (lambda ([k : Integer] [v : attr]) : (Values String Nonnegative-Integer)
-             (values (cast (attr-val v) String)
+             (values (string-trim (cast (attr-val v) String))
                      (assert k nonnegative-integer?))))])
     (binary-table
      (field-offset tform)
@@ -290,6 +294,17 @@
 (define (read-field bt field)
   (let ([idx (hash-ref (binary-table-mapping bt) field)])
     (matrix-col (binary-table-data bt) (sub1 idx))))
+
+;;  读取操作，但是解除单元素列表的装箱并输出一个List
+;   对Untyped Racket更友好的操作
+(: read-field-reduct (-> binary-table String (Listof Table-Element)))
+(define (read-field-reduct bt field)
+  (let ([idx (hash-ref (binary-table-mapping bt) field)])
+    (map (lambda ([e : (Listof Table-Element)])
+           (if (eq? (length e) 1)
+               (car e)
+               (raise (string-append "The Element of this field is not a list of single value : " field))))
+         (matrix->list (matrix-col (binary-table-data bt) (sub1 idx))))))
 
 ;; 写入操作
 ;  目前只支持对数据矩阵整体更改, 更多操作有待实现
