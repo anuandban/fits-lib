@@ -32,7 +32,9 @@
 
 ;;; 工具函数
 (provide read-blocks
-         read-bytes-aligned)
+         read-bytes-aligned
+         split-bytes
+         split-bytes-vec)
 
 ;;  -----读取Input-Port相关-----
 ;   从input-port中读取N个区块的字节，如果出现了EOF，直接返回#f
@@ -51,3 +53,22 @@
         (subbytes bt? 0 by_n)
         #f)))
 ;;  ---------------
+
+;;  -----操作Bytes相关-----
+;   将Bytes切割成一个字节串列表，每份长度为sl，字节串不能被sl整除时抛出错误
+(: split-bytes (-> Bytes Integer (Listof Bytes)))
+(define (split-bytes b sl)
+  (when (not (zero? (remainder (bytes-length b) sl)))
+    (error "Bytes split failed"))
+  (let ([slice_count (quotient (bytes-length b) sl)])
+    (for/list ([idx_begin (in-range slice_count)])
+      (subbytes b idx_begin (+ idx_begin sl)))))
+
+;   将Bytes切割成一个字节串向量，每份长度为sl，字节串不能被sl整除时抛出错误
+(: split-bytes-vec (-> Bytes Integer (Vectorof Bytes)))
+(define (split-bytes-vec b sl)
+  (when (not (zero? (remainder (bytes-length b) sl)))
+    (error "Bytes split failed"))
+  (let ([slice_count (quotient (bytes-length b) sl)])
+    (for/vector ([idx_begin (in-range slice_count)]) : Bytes 
+      (subbytes b idx_begin (+ idx_begin sl)))))

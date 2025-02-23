@@ -28,7 +28,7 @@
      (println "----------TEST HEADER----------" outfile)
      (pretty-print (binary-table-data ext_table) outfile))))
 
-(define tess (open-input-file "../test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
+(define tess (open-input-file "e:/project/fits-lib/test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
 (define _h (read-header tess))
 (define ext-h (read-header tess))
 (define ext-t (build-binary-table tess ext-h))

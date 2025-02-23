@@ -13,6 +13,7 @@
          binary-table-tfields
          build-binary-table
          (rename-out [read-field bt-read-field]
+                     [read-field-reduct bt-read-field-reduct]
                      [write-data bt-write-data]
                      [update-data bt-update-data]))
 

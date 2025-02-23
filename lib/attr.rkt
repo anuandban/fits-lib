@@ -8,7 +8,8 @@
          Header-Attr
          AttrValue
          read-header
-         take-fields-named)
+         take-fields-named
+         valid-bitpix?)
 
 (define-type AttrValue (U Boolean String Number 'undefined))
 
@@ -345,3 +346,11 @@
   ; "read-header-test"
   ; (pretty-print (read-header tess)))
 )
+
+;   验证BITPIX的特殊规范
+(: valid-bitpix? (-> Header-Attr Boolean))
+(define (valid-bitpix? at)
+  (let ([uncheck_bp (hash-ref at "BITPIX" #f)])
+    (match uncheck_bp
+      [8 #t] [16 #t] [32 #t] [64 #t] [-32 #t] [-64 #t]
+      [else #f])))
