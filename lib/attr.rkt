@@ -350,7 +350,7 @@
 ;   验证BITPIX的特殊规范
 (: valid-bitpix? (-> Header-Attr Boolean))
 (define (valid-bitpix? at)
-  (let ([uncheck_bp (hash-ref at "BITPIX" #f)])
+  (let ([uncheck_bp (attr-val (hash-ref at "BITPIX"))])
     (match uncheck_bp
       [8 #t] [16 #t] [32 #t] [64 #t] [-32 #t] [-64 #t]
       [else #f])))

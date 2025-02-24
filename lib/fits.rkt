@@ -26,7 +26,18 @@
      (println "----------TEST HEADER----------" outfile)
      (pretty-print (binary-table-tfields ext_table) outfile)
      (println "----------TEST HEADER----------" outfile)
-     (pretty-print (binary-table-data ext_table) outfile))))
+     (pretty-print (binary-table-data ext_table) outfile)))
+  (test-case
+   "Image table reader test"
+   (let* ([ext_h (read-header tess)]
+          [ext_table (build-image-table tess ext_h)]
+          [outfile (open-output-file "../test/test-image.txt" #:exists 'replace)])
+     
+     (check-eq? 2 (vector-length (image-table-shape ext_table)))
+
+     (pretty-print ext_h outfile)
+     (println "----------TEST HEADER----------" outfile)
+     (pretty-print (image-table-data ext_table) outfile))))
 
 (define tess (open-input-file "e:/project/fits-lib/test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
 (define _h (read-header tess))
