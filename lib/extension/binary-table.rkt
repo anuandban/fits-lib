@@ -5,11 +5,11 @@
          "../util.rkt"
          "../attr.rkt")
 
-(provide Table-Element
+(provide BinaryTableElement
          binary-table
-         binary-table-asize
+         binary-table-shape
          binary-table-data
-         binary-table-mapping
+         binary-table-ttype
          binary-table-tfields
          build-binary-table
          (rename-out [read-field bt-read-field]
@@ -25,18 +25,18 @@
 
 (define-type Array-Descriptor Bytes)
 
-(define-type Table-Element
+(define-type BinaryTableElement
   (U Boolean Bits-Array Bytes String Integer Float Float-Complex Number Array-Descriptor))
 
 (struct binary-table
-  (; 由TFIELD描述的各个字段在一行中类型名, 占据的字节长度, 字段内值数量.
+  (; 由NAXIS1和NAXIS2决定的表尺寸(行字节宽度*列字节高度)
+   [shape : (Pairof Nonnegative-Integer Nonnegative-Integer)]
+   ; 由TFIELD描述的各个字段在一行中类型名, 占据的字节长度, 字段内值数量.
    [tfields : (Vectorof (List String Integer Integer))]
-   ; 由NAXIS1和NAXIS2决定的表尺寸(行字节宽度*列字节高度)
-   [asize : (Pairof Nonnegative-Integer Nonnegative-Integer)]
    ; 可选的由TTYPE决定的每个字段的别名
-   [mapping : (HashTable String Nonnegative-Integer)]
+   [ttype : (HashTable String Nonnegative-Integer)]
    ; 原始字节解析后的矩阵
-   [data : (Matrix (Listof Table-Element))])
+   [data : (Matrix (Listof BinaryTableElement))])
   #:prefab)
 
 ;;;
@@ -155,7 +155,7 @@
 
 ;   将字节串转换为Racket类型
 ;   注意FITS数值类型全是大端序
-(: format-bytes-value (-> String Bytes Table-Element))
+(: format-bytes-value (-> String Bytes BinaryTableElement))
 (define (format-bytes-value type data)
   (match type
     ["L" ; 逻辑/布尔值
@@ -202,16 +202,16 @@
 ;   从对齐区块中读取数据矩阵, 所需参数将在build-binary-table中清洗出来
 (: load-table-from 
    (-> Input-Port (Vectorof (List String Integer Integer)) Integer Integer
-       (Matrix (Listof Table-Element))))
+       (Matrix (Listof BinaryTableElement))))
 (define (load-table-from p tform naxis1 naxis2)
   (let ([byte_table
          (subbytes
           (assert (read-bytes-aligned p (* naxis1 naxis2)) bytes?)
           0 (* naxis1 naxis2))]
         [split-fields
-         : (-> Bytes (Pairof Number (Array (Listof Table-Element))))
+         : (-> Bytes (Pairof Number (Array (Listof BinaryTableElement))))
          (lambda (row)
-           (foldl (lambda ([idx : Integer] [offset_res : (Pairof Integer (Array (Listof Table-Element)))])
+           (foldl (lambda ([idx : Integer] [offset_res : (Pairof Integer (Array (Listof BinaryTableElement)))])
                     (let* ([id_type (assert (list-ref (vector-ref tform idx) 0) string?)]
                            [id_len (assert (list-ref (vector-ref tform idx) 1) exact-integer?)]
                            [id_count (assert (list-ref (vector-ref tform idx) 2) exact-integer?)]
@@ -243,14 +243,14 @@
                                         #[(map (lambda ([v : Bytes])
                                                  (format-bytes-value id_type v))
                                                field_bytevals)])))))))
-                  (cons 0 (ann (array #[]) (Array (Listof Table-Element))))
+                  (cons 0 (ann (array #[]) (Array (Listof BinaryTableElement))))
                   (range 0 (vector-length tform))))]
         [_row_set? : Boolean #f]
         [_row_id! : Integer 0]
-        [_row_fields! : (Array (Listof Table-Element)) (array #[])])
+        [_row_fields! : (Array (Listof BinaryTableElement)) (array #[])])
     (for/matrix naxis2 (vector-length tform)
       ([ix (in-range (* naxis2 (vector-length tform)))])
-      : (Listof Table-Element)
+      : (Listof BinaryTableElement)
       (define row_ix (quotient ix (vector-length tform)))
       (define col_ix (remainder ix (vector-length tform)))
       (unless _row_set?
@@ -283,25 +283,25 @@
              (values (string-trim (cast (attr-val v) String))
                      (assert k nonnegative-integer?))))])
     (binary-table
-     (field-offset tform)
      (cons naxis1 naxis2)
+     (field-offset tform)
      ttype_map
      (load-table-from p (field-offset tform) naxis1 naxis2))))
 
 ;;  读取操作
 ;   除了用TTYPE别名读取的操作外的其他读取操作直接使用matrix库的方案
 
-(: read-field (-> binary-table String (Matrix (Listof Table-Element))))
+(: read-field (-> binary-table String (Matrix (Listof BinaryTableElement))))
 (define (read-field bt field)
-  (let ([idx (hash-ref (binary-table-mapping bt) field)])
+  (let ([idx (hash-ref (binary-table-ttype bt) field)])
     (matrix-col (binary-table-data bt) (sub1 idx))))
 
 ;;  读取操作，但是解除单元素列表的装箱并输出一个List
 ;   对Untyped Racket更友好的操作
-(: read-field-reduct (-> binary-table String (Listof Table-Element)))
+(: read-field-reduct (-> binary-table String (Listof BinaryTableElement)))
 (define (read-field-reduct bt field)
-  (let ([idx (hash-ref (binary-table-mapping bt) field)])
-    (map (lambda ([e : (Listof Table-Element)])
+  (let ([idx (hash-ref (binary-table-ttype bt) field)])
+    (map (lambda ([e : (Listof BinaryTableElement)])
            (if (eq? (length e) 1)
                (car e)
                (raise (string-append "The Element of this field is not a list of single value : " field))))
@@ -310,7 +310,7 @@
 ;; 写入操作
 ;  目前只支持对数据矩阵整体更改, 更多操作有待实现
 
-(: write-data (-> binary-table (Matrix (Listof Table-Element)) binary-table))
+(: write-data (-> binary-table (Matrix (Listof BinaryTableElement)) binary-table))
 (define (write-data bt nd)
   (struct-copy binary-table bt [data nd]))
 
@@ -319,6 +319,6 @@
 
 (: update-data
    (-> binary-table
-       (-> (Matrix (Listof Table-Element)) (Matrix (Listof Table-Element))) binary-table))
+       (-> (Matrix (Listof BinaryTableElement)) (Matrix (Listof BinaryTableElement))) binary-table))
 (define (update-data bt fn)
   (struct-copy binary-table bt [data (fn (binary-table-data bt))]))

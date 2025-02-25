@@ -20,9 +20,9 @@
      (let-values ([(h w) (matrix-shape (binary-table-data ext_table))])
        (check-eq? h 17967)
        (check-eq? w 20))
-     (pretty-print (binary-table-asize ext_table) outfile)
+     (pretty-print (binary-table-shape ext_table) outfile)
      (println "----------TEST HEADER----------" outfile)
-     (pretty-print (binary-table-mapping ext_table) outfile)
+     (pretty-print (binary-table-ttype ext_table) outfile)
      (println "----------TEST HEADER----------" outfile)
      (pretty-print (binary-table-tfields ext_table) outfile)
      (println "----------TEST HEADER----------" outfile)
@@ -44,10 +44,10 @@
 (define ext-h (read-header tess))
 (define ext-t (build-binary-table tess ext-h))
 (define ttime
-  (vector-map (lambda ([x : (Listof Table-Element)]) : Real (cast (car x) Real))
+  (vector-map (lambda ([x : (Listof BinaryTableElement)]) : Real (cast (car x) Real))
               (matrix->vector (bt-read-field ext-t "TIME"))))
 (define tflux
-  (vector-map (lambda ([x : (Listof Table-Element)]) : Real (cast (car x) Real))
+  (vector-map (lambda ([x : (Listof BinaryTableElement)]) : Real (cast (car x) Real))
               (matrix->vector (bt-read-field ext-t "PDCSAP_FLUX"))))
 
 (require plot)

@@ -10,6 +10,10 @@
          build-image-table
          Image)
 
+;;;
+;   IMAGE表相关类型定义
+;;;
+
 (define-type Image
   (U (Vectorof Image) Bytes))
 
@@ -34,7 +38,6 @@
           (not (eqv? 1 (attr-val (hash-ref at "GCOUNT"))))
           (not (and (integer? (attr-val (hash-ref at "NAXIS")))
                     (<= (cast (attr-val (hash-ref at "NAXIS")) Integer) 999))))
-    (pretty-print at)
     (error 'IMAGE-extension "wrong attribute value (BITPIX, GCOUNT, PCOUNT, NAXIS)"))
   ; 准备初始化的解析条件
   (let* ([bitpix (quotient (cast (attr-val (hash-ref at "BITPIX")) Integer) 8)]
