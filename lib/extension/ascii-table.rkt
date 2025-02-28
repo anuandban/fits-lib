@@ -10,7 +10,7 @@
          ascii-table-shape
          ascii-table-ttype
          ascii-table-data
-         build-image-table)
+         build-ascii-table)
 
 ;;;
 ;   ASCII表相关定义
@@ -73,8 +73,8 @@
 ;   ASCII表操作函数
 ;;;
 
-(: build-image-table (-> Input-Port Header-Attr ascii-table))
-(define (build-image-table p at)
+(: build-ascii-table (-> Input-Port Header-Attr ascii-table))
+(define (build-ascii-table p at)
   ; 根据规范进行检查
   (when
       (or (not (eqv? 8 (attr-val (hash-ref at "BITPIX"))))
