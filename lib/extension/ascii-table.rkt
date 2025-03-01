@@ -33,11 +33,15 @@
 (: format-bytes-value (-> Bytes String AsciiTableElement))
 (define (format-bytes-value val tform)
   (match tform
+    ; ASCII字符
     ["Aw" (bytes->string/utf-8 val)]
-    ["Iw" (assert (string->number (bytes->string/utf-8 val) 10) integer?)]
-    ["Fw.d" (assert (string->number (bytes->string/utf-8 val) 10) real?)]
-    ["Ew.d" (assert (string->number (bytes->string/utf-8 val) 10) real?)]
-    ["Dw.d" (assert (string->number (string-replace (bytes->string/utf-8 val) "D" "E") 10) real?)]))
+    ; 整数
+    ["Iw" (cast (string->number (bytes->string/utf-8 val)) Integer)]
+    ; 浮点数
+    ["Fw.d" (cast (string->number (bytes->string/utf-8 val)) Real)]
+    ; 科学计数法
+    ["Ew.d" (cast (string->number (bytes->string/utf-8 val)) Real)]
+    ["Dw.d" (cast (string->number (string-replace (bytes->string/utf-8 val) "D" "E")) Real)]))
 
 ; 解析二进制串为矩阵的函数
 (: bytes->matrix
@@ -49,16 +53,16 @@
   (: row-fields-length (->* ((Listof Integer)) ((Listof Integer)) (Listof Integer)))
   (define (row-fields-length col [rlt '()])
     (if (= (length col) 1)
-        (reverse (cons (- naxis1 (car col)) rlt))
+        (reverse (cons (- naxis1 (sub1 (car col))) rlt))
         (row-fields-length
          (cdr col)
-         (cons (- (cadr (take col 2)) (car (take col 2))) rlt))))
+         (cons (- (sub1 (cadr (take col 2))) (sub1 (car (take col 2)))) rlt))))
   ; 构建矩阵
   (define idx_acc 0)
   (for/matrix (car ax_p) (cdr ax_p)
     ([idx
       (apply append
-             (for/list ([_ (in-range (car ax_p))]) : (Listof (Listof Integer))
+             (for/list ([_ (in-range (* (car ax_p) (cdr ax_p)))]) : (Listof (Listof Integer))
                (row-fields-length tbcols)))]
      [idx_tform
       (apply append
@@ -68,6 +72,28 @@
     (let ([fi_idx idx_acc])
       (set! idx_acc (+ idx_acc idx))
       (fn (subbytes b fi_idx (+ fi_idx idx)) idx_tform))))
+
+(module+ test
+  (test-case
+   "bytes->matrix test"
+   (let ([test_matrix
+          (bytes->matrix #"123456"
+                         (cons 3 2)
+                         2
+                         '(1 2)
+                         '("Iw" "Iw")
+                         format-bytes-value)])
+     (check-eq? 3 (matrix-num-rows test_matrix))
+     (check-eq? 2 (matrix-num-cols test_matrix)))
+   (let ([test_matrix
+          (bytes->matrix #"123456789"
+                         (cons 3 2)
+                         3
+                         '(1 2)
+                         '("Iw" "Aw")
+                         format-bytes-value)])
+     (check-eq? 3 (matrix-num-rows test_matrix))
+     (check-eq? 2 (matrix-num-cols test_matrix)))))
 
 ;;;
 ;   ASCII表操作函数
