@@ -5,12 +5,15 @@
 ;; 第三方库依赖
 (define deps 
   '("base"
-    "typed-racket-lib"))
+    "typed-racket-lib"
+    "math-lib"
+    "rackunit-typed"))
 
 ;; 构建依赖
 (define build-deps 
   '("scribble-lib"
     "racket-doc"
+    "math-lib"
     "rackunit-typed"))
 
 ;; Scribble 文档
