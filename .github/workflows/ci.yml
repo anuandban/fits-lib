@@ -22,8 +22,8 @@ jobs:
           variant: ${{ matrix.racket-variant }}
           version: ${{ matrix.racket-version }}
       - name: Installing fits and its dependencies
-        run: raco pkg install --no-docs --auto --name fits
+        run: raco pkg install --no-docs --auto --name fits-lib
       - name: Compiling fits and building its docs
-        run: raco setup --check-pkg-deps --unused-pkg-deps fits
+        run: raco setup --check-pkg-deps --unused-pkg-deps fits-lib
       - name: Testing fits
-        run: raco test -x -p fits
+        run: raco test -x -p fits-lib
