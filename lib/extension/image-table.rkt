@@ -5,6 +5,7 @@
          "../attr.rkt")
 
 (provide image-table
+         image-table?
          image-table-data
          image-table-shape
          build-image-table

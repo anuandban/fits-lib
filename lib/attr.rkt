@@ -266,16 +266,21 @@
                   (take-line (cons (substring rest_str 0 80) l) (substring rest_str 80))))])
     (reverse (take-line '() attr_str))))
 
-(: read-header (-> Input-Port Header-Attr))
+(: read-header (-> Input-Port (Option Header-Attr)))
 (define (read-header p)
   (letrec ([read-block
-            : ((Listof (Pairof String attr)) -> Header-Attr)
+            : ((Listof (Pairof String attr)) -> (Option Header-Attr))
             (lambda (at)
-              (let* ([attr_str (bytes->string/utf-8 (assert (read-blocks p 1) bytes?))]
-                     [attr_block (assert (dispense-state (split-attr-line attr_str) 0) pair?)])
-                (case (car attr_block)
-                  ['continue (read-block (append (cdr attr_block) at))]
-                  ['end (make-hash (reverse (append (cdr attr_block) at)))])))])
+              (define next_card (read-blocks p 1))
+              (if (eof-object? next_card)
+                  (begin (when (not (empty? at))
+                           (error "Header ends with EOF"))
+                         #f)
+                  (let* ([attr_str (bytes->string/utf-8 (assert next_card bytes?))]
+                         [attr_block (assert (dispense-state (split-attr-line attr_str) 0) pair?)])
+                    (case (car attr_block)
+                      ['continue (read-block (append (cdr attr_block) at))]
+                      ['end (make-hash (reverse (append (cdr attr_block) at)))]))))])
     (read-block '())))
 
 ;;  ---------------
@@ -336,16 +341,7 @@
        (hash "TFORM1" (attr "1I" "")
              "TFORM2" (attr "1J" "")
              "TFORM3" (attr "1K" ""))
-       4 "TFORM" #t))))
-  
-  ;; 测试用文件
-  ;(define tess (open-input-file "../test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
-  ;(define lamost (open-input-file "../test/dr10_v2.0_LRS_catalogue.fits"))
-  ;; 接下来的测试将使用这两个文件作为基准
-  ;(test-case
-  ; "read-header-test"
-  ; (pretty-print (read-header tess)))
-)
+       4 "TFORM" #t)))))
 
 ;   验证BITPIX的特殊规范
 (: valid-bitpix? (-> Header-Attr Boolean))

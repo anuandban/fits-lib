@@ -7,13 +7,14 @@
 
 (provide BinaryTableElement
          binary-table
+         binary-table?
          binary-table-shape
          binary-table-data
          binary-table-ttype
          binary-table-tfields
          build-binary-table
          (rename-out [read-field bt-read-field]
-                     [read-field-reduct bt-read-field-reduct]
+                     [read-field-col bt-read-field-col]
                      [write-data bt-write-data]
                      [update-data bt-update-data]))
 
@@ -296,16 +297,17 @@
   (let ([idx (hash-ref (binary-table-ttype bt) field)])
     (matrix-col (binary-table-data bt) (sub1 idx))))
 
-;;  读取操作，但是解除单元素列表的装箱并输出一个List
+;;  读取操作，但是解除单元素列表的装箱并输出一个Vector
 ;   对Untyped Racket更友好的操作
-(: read-field-reduct (-> binary-table String (Listof BinaryTableElement)))
-(define (read-field-reduct bt field)
-  (let ([idx (hash-ref (binary-table-ttype bt) field)])
-    (map (lambda ([e : (Listof BinaryTableElement)])
+(: read-field-col (-> binary-table (U Integer String) (Vectorof BinaryTableElement)))
+(define (read-field-col bt field)
+  (let ([idx (cond [(integer? field) field]
+                   [(string? field) (hash-ref (binary-table-ttype bt) field)])])
+    (vector-map (lambda ([e : (Listof BinaryTableElement)])
            (if (eq? (length e) 1)
                (car e)
-               (raise (string-append "The Element of this field is not a list of single value : " field))))
-         (matrix->list (matrix-col (binary-table-data bt) (sub1 idx))))))
+               (raise (string-append "The Element of this field is not a list of single value : " (number->string idx)))))
+         (matrix->vector (matrix-col (binary-table-data bt) (sub1 idx))))))
 
 ;; 写入操作
 ;  目前只支持对数据矩阵整体更改, 更多操作有待实现

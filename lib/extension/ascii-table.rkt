@@ -7,10 +7,12 @@
 
 (provide AsciiTableElement
          ascii-table
+         ascii-table?
          ascii-table-shape
          ascii-table-ttype
          ascii-table-data
-         build-ascii-table)
+         build-ascii-table
+         (rename-out [read-field-col at-read-field-col]))
 
 ;;;
 ;   ASCII表相关定义
@@ -140,3 +142,14 @@
                     (cast (thash->tlist tbcols) (Listof Integer))
                     (cast (thash->tlist tform) (Listof String))
                     format-bytes-value))))
+
+;;  读取操作
+;   使用TTYPE别名或者序数读取列为一个Vector
+(: read-field-col (ascii-table (U Integer String) -> (Vectorof AsciiTableElement)))
+(define (read-field-col as_t idx)
+  (cond
+    [(integer? idx) (matrix->vector (matrix-col (ascii-table-data as_t) (sub1 idx)))]
+    [(string? idx)
+     (matrix->vector
+      (matrix-col (ascii-table-data as_t)
+                  (hash-ref (ascii-table-ttype as_t) idx)))]))

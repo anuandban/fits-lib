@@ -1,4 +1,4 @@
-#lang typed/racket
+#lang typed/racket/shallow
 
 (require typed/rackunit
          math
@@ -7,55 +7,55 @@
          "./extension/binary-table.rkt"
          "./extension/image-table.rkt")
 
-(module+ test
-  (define tess (open-input-file "../test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
-  (define prim_h (read-header tess))
-  (test-case
-   "Binary table reader test"
-   (let* ([ext_h (read-header tess)]
-          [ext_table (build-binary-table tess ext_h)]
-          [outfile (open-output-file "../test/test.txt" #:exists 'replace)])
-     (pretty-print ext_h outfile)
-     (println "----------TEST HEADER----------" outfile)
-     (let-values ([(h w) (matrix-shape (binary-table-data ext_table))])
-       (check-eq? h 17967)
-       (check-eq? w 20))
-     (pretty-print (binary-table-shape ext_table) outfile)
-     (println "----------TEST HEADER----------" outfile)
-     (pretty-print (binary-table-ttype ext_table) outfile)
-     (println "----------TEST HEADER----------" outfile)
-     (pretty-print (binary-table-tfields ext_table) outfile)
-     (println "----------TEST HEADER----------" outfile)
-     (pretty-print (binary-table-data ext_table) outfile)))
-  (test-case
-   "Image table reader test"
-   (let* ([ext_h (read-header tess)]
-          [ext_table (build-image-table tess ext_h)]
-          [outfile (open-output-file "../test/test-image.txt" #:exists 'replace)])
-     
-     (check-eq? 2 (vector-length (image-table-shape ext_table)))
+(provide Extension-Table
+         HDU
+         fits
+         read-hdu
+         read-data
+         read-data-row
+         read-data-col)
 
-     (pretty-print ext_h outfile)
-     (println "----------TEST HEADER----------" outfile)
-     (pretty-print (image-table-data ext_table) outfile))))
+(define-type Extension-Table (U ascii-table binary-table image-table 'primary))
+(define-type HDU (Pairof Header-Attr Extension-Table))
 
-(define tess (open-input-file "e:/project/fits-lib/test/tess2024249191853-s0083-0000010001363713-0280-s_lc.fits"))
-(define _h (read-header tess))
-(define ext-h (read-header tess))
-(define ext-t (build-binary-table tess ext-h))
-(define ttime
-  (vector-map (lambda ([x : (Listof BinaryTableElement)]) : Real (cast (car x) Real))
-              (matrix->vector (bt-read-field ext-t "TIME"))))
-(define tflux
-  (vector-map (lambda ([x : (Listof BinaryTableElement)]) : Real (cast (car x) Real))
-              (matrix->vector (bt-read-field ext-t "PDCSAP_FLUX"))))
+(struct fits ([hdu : (Vectorof HDU)]) #:prefab)
 
-(require plot)
-(plot-new-window? #t)
-(plot
- (points
-  (vector-map
-   (lambda ([x : Real] [y : Real]) (vector x y))
-   ttime
-   tflux)
-  #:sym 'bullet))
+; 读取HDU单元
+(: read-hdu (fits Integer -> HDU))
+(define (read-hdu f idx)
+  (vector-ref (fits-hdu f) idx))
+
+; 读取HDU单元的数据部分
+; 读取HDU单元数据部分的某一列(使用TTYPE定义的名称或者序数下标)
+(: read-data (case->
+              [HDU -> Any]
+              [HDU (U Integer String) -> (U (Vectorof BinaryTableElement) (Vectorof AsciiTableElement))]))
+(define read-data
+  (case-lambda
+    [(hdu)
+     (cond [(image-table? (cdr hdu)) (image-table-data (cdr hdu))]
+           [(binary-table? (cdr hdu)) (binary-table-data (cdr hdu))]
+           [(ascii-table? (cdr hdu)) (ascii-table-data (cdr hdu))]
+           [(eq? 'primary (cdr hdu)) (error "Cannot apply 'read-data' on Primary HDU")])]
+    [(hdu id)
+     (cond [(image-table? (cdr hdu)) (error "Cannot use index to read IMAGE table")]
+           [(binary-table? (cdr hdu))
+            (bt-read-field-col (cdr hdu) id)]
+           [(ascii-table? (cdr hdu))
+            (at-read-field-col (cdr hdu) id)]
+           [(eq? 'primary (cdr hdu)) (error "Cannot apply 'read-data' on Primary HDU")])]))
+
+; 读取HDU单元数据部分的某一行
+(: read-data-row (HDU Integer -> (Vectorof Any)))
+(define (read-data-row hdu row_id)
+  (cond [(image-table? (cdr hdu)) (error "Cannot use read-data-row in IMAGE table")]
+        [(binary-table? (cdr hdu))
+         (matrix->vector (matrix-row (binary-table-data (cdr hdu)) row_id))]
+        [(ascii-table? (cdr hdu))
+         (matrix->vector (matrix-row (ascii-table-data (cdr hdu)) row_id))]
+        [(eq? 'primary (cdr hdu)) (error "Cannot apply 'read-data-row' on Primary HDU")]))
+
+; 读取HDU单元数据部分的某一列
+(: read-data-col (HDU Integer -> (U (Vectorof BinaryTableElement) (Vectorof AsciiTableElement))))
+(define (read-data-col hdu col_id)
+  (read-data hdu col_id))
