@@ -11,7 +11,7 @@
 (define build-deps 
   '("scribble-lib"
     "racket-doc"
-    "rackunit-lib"))
+    "rackunit-typed"))
 
 ;; Scribble 文档
 (define scribblings 
