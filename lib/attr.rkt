@@ -272,7 +272,7 @@
             : ((Listof (Pairof String attr)) -> (Option Header-Attr))
             (lambda (at)
               (define next_card (read-blocks p 1))
-              (if (eof-object? next_card)
+              (if (false? next_card)
                   (begin (when (not (empty? at))
                            (error "Header ends with EOF"))
                          #f)

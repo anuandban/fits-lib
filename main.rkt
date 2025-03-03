@@ -23,13 +23,13 @@
     (let ([header (read-header po)])
       (if (false? header)
           (fits (list->vector (reverse lfits)))
-          (cond [(eqv? (hash-ref header "SIMPLE" #f) #t)
+          (cond [(eqv? (attr-val (hash-ref header "SIMPLE" (lambda () (attr 'undefined "")))) #t)
                  (recur-read-fits po (cons (cons header 'primary) lfits))]
-                [(eqv? (hash-ref header "XTENSION" #f) "IMAGE")
+                [(string=? (assert (attr-val (hash-ref header "XTENSION" (lambda () (attr 'undefined "")))) string?) "IMAGE   ")
                  (recur-read-fits po (cons (cons header (build-image-table po header)) lfits))]
-                [(eqv? (hash-ref header "XTENSION" #f) "TABLE")
+                [(string=? (assert (attr-val (hash-ref header "XTENSION" (lambda () (attr 'undefined "")))) string?) "TABLE   ")
                  (recur-read-fits po (cons (cons header (build-ascii-table po header)) lfits))]
-                [(eqv? (hash-ref header "XTENSION" #f) "BINARY")
+                [(string=? (assert (attr-val (hash-ref header "XTENSION" (lambda () (attr 'undefined "")))) string?) "BINTABLE")
                  (recur-read-fits po (cons (cons header (build-binary-table po header)) lfits))]
-                [else (error "Wrong hdu syntax :" (pretty-format header))]))))
+                [else (pretty-print header) (error "Wrong hdu syntax :" (pretty-format header))]))))
   (recur-read-fits p '()))

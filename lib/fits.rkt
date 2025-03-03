@@ -1,7 +1,6 @@
 #lang typed/racket/shallow
 
-(require typed/rackunit
-         math
+(require math
          "./attr.rkt"
          "./extension/ascii-table.rkt"
          "./extension/binary-table.rkt"
